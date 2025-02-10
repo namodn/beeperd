@@ -1,0 +1,430 @@
+head	1.8;
+access;
+symbols;
+locks
+	robert:1.8; strict;
+comment	@ * @;
+
+
+1.8
+date	99.09.21.07.15.01;	author robert;	state Exp;
+branches;
+next	1.7;
+
+1.7
+date	99.09.21.07.13.24;	author robert;	state Exp;
+branches;
+next	1.6;
+
+1.6
+date	99.09.21.04.28.32;	author robert;	state Exp;
+branches;
+next	1.5;
+
+1.5
+date	99.08.19.05.38.26;	author robert;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	99.08.19.05.31.56;	author robert;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	99.08.19.02.14.38;	author robert;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	99.08.18.04.51.49;	author robert;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	99.08.18.04.36.52;	author robert;	state Exp;
+branches;
+next	;
+
+
+desc
+@Initial revision
+@
+
+
+1.8
+log
+@moved beeperd.dip to /etc/beeperd
+@
+text
+@#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
+#include <string.h>
+
+/*
+ * beeper daemon - calls 'PHN-NMBR,,,,,0*0*0*0*0' when argv[1] is down
+ * ( also see beeperd.dip )
+ * 
+ * Copyright Robert Helmer/Namodn Enterprises 1999, redistribution allowed 
+ * for any purpose as per the GPL. Please read the attached file 'COPYING' 
+ * for license info
+ */
+
+int errorlog( char *errorstring )
+{
+   char errorcommand[256];
+   sprintf( errorcommand, "echo %s >> /var/log/beeperd.log", errorstring );
+   system( errorcommand );
+   return 0;
+}
+
+int pingloop( const char *IP_address )
+{
+   char command[256];		/* Command to be run if server is down */
+   int status;			/* Host is Up or Down? */
+   int ping_result;		/* errno for ICMP bounce goes here */
+   int main_loop;		
+   int ping_loop;
+   int done_been_beeped;	/* beeper has been activated if true */
+
+   sprintf( command, "ping -c 1 %s > /dev/null", IP_address );
+   main_loop=1;
+   ping_loop=1;
+   status=0;
+
+   for( ;; main_loop++ )
+   {
+      ping_result = system( command );
+      if( ping_result == 0 )
+      {
+         if( !status )
+         {
+            errorlog( "Host is Up" );
+            status = 1;
+         }
+      }
+
+      if( ping_result != 0 )
+      {
+            if( status )
+            {
+               errorlog( "Host Not Responding" );
+               status = 0;
+            }
+         ping_loop++;
+         if( ping_loop == 30 ) /* If host is not up, try for 5 minutes */
+         {
+            errorlog( "Calling the Beeper" );
+            ping_result = system( "dip /etc/beeperd/beeperd.dip" );
+            done_been_beeped=1;
+            break;
+         }
+      }
+      if( done_been_beeped == 1 )
+            break;
+      if( main_loop == 1 )
+      {
+         if( done_been_beeped == 1 )
+         {
+            system( "echo Hi! This is beeperd. I have been unable to reach the outside world for 15 minutes. I have paged Nick and died. Please restart me! Thanks, beeperd. | sendmail admin@@namodn.com" );
+            break;
+         }
+         main_loop=0;
+         sleep( 600 );    /* check every 10 minutes */  
+      }
+   }
+return ping_result;
+}
+
+
+int main ( int argc, char **argv )
+{
+   char *IP_address;
+   int beeperd;
+
+   IP_address = argv[1];
+  
+   if (argc != 2)
+   {
+      printf("beeperd 0.0.1\nCopyright 1999 Robert Helmer/Namodn Enterprises\nbeeperd is free software, covered by the GNU General Public License.\nYou may modify and/or redistribute this software!\nSee the file COPYING and http://robert.namodn.com for more.\n\n" );
+      fprintf(stderr, "Usage: %s IP_address\n",
+      argv[0]);
+ 
+      exit(0);
+   }
+   
+   if (fork())
+   {
+      errorlog( "Beeperd Started!" );
+      exit(0);
+   }
+
+
+   beeperd = pingloop( IP_address );
+
+return 0;
+}
+
+@
+
+
+1.7
+log
+@added mail notification, less log spam :) only notifies logs of changes
+in status.
+@
+text
+@d61 1
+a61 1
+            ping_result = system( "dip ./beeperd.dip" );
+@
+
+
+1.6
+log
+@Many changes; errorlog modularized, in production testing phase
+@
+text
+@d27 1
+d36 1
+d43 5
+a47 1
+         errorlog( "Host is Up" );
+d51 2
+a52 4
+         {
+            errorlog( "Host Not Responding" );
+            ping_loop++;
+            if( ping_loop == 10 )
+d54 2
+a55 4
+               errorlog( "Calling the Beeper" );
+               /* ping_result = system( "dip ./beeperd.dip" ); */
+               done_been_beeped=1;
+               break;
+d57 7
+d65 1
+d71 2
+d74 1
+d76 1
+a76 1
+         sleep( 300 );    /* 5 minutes */  
+@
+
+
+1.5
+log
+@disabled beeper for test
+@
+text
+@d16 9
+a24 1
+int pingloop( const char *IP_address, const char *logfile )
+a30 1
+   FILE *in = 0;		/* handle for logfile ( argv[2] ) */
+a35 8
+/* Open log file */
+
+   if ( !( in = fopen( logfile, "w" ) ) )	
+   {
+      fprintf( stderr, "Cannot open input file.\n" );
+      return 2;
+   }
+
+d39 4
+a42 1
+      printf( "%i", ping_result );
+d46 9
+a54 14
+            for( ;; ping_loop++ )
+               {
+                  if( ping_loop >= 10 )
+                  {
+                      printf( "Calling the beeper..\n" );
+/* ping_result = system( "dip ./beeperd.dip" ); */
+                      done_been_beeped=1;
+                      break;
+                   }
+                   else
+                      break;
+               }
+               if( done_been_beeped == 1 )
+                  break;
+d56 2
+d63 1
+a63 1
+         sleep( 300 );     /* 5 minutes */
+d73 1
+a73 2
+   char *logfile;
+   int test;
+a75 1
+   logfile    = argv[2];
+d77 1
+a77 1
+   if (argc != 3)
+d80 1
+a80 1
+      fprintf(stderr, "Usage: %s IP_address logfile\n",
+d85 7
+a91 1
+test = pingloop( IP_address, logfile );
+d93 1
+a93 7
+/*
+ *  if (fork())
+ *  {
+ *     printf("Forked child OK Exit now ...\n");
+ *     exit(0);
+ *  }  
+ */
+@
+
+
+1.4
+log
+@attempted to add logging, takes two command line args now :)
+@
+text
+@d18 3
+a20 3
+   char command[256];
+   int ping_result;
+   int main_loop;
+d22 2
+a23 3
+   int done_been_beeped;
+   int ch;
+   FILE *in = 0;
+d29 3
+a31 1
+   if ( !( in = fopen( logfile, "w" ) ) )
+d40 1
+a40 6
+      while ( ( ch = fgetc( in ) ) != EOF )
+        {
+           if ( !( ch == '\r' ) )
+              putchar( 1 );
+           putchar( ch );
+        } 
+d49 1
+a49 1
+                      ping_result = system( "dip ./beeperd.dip" );
+d83 1
+a83 1
+      fprintf(stderr, "Usage: %s IP_address\n logfile\n",
+@
+
+
+1.3
+log
+@formatting
+@
+text
+@d2 2
+d5 1
+a5 1
+#include <unistd.h>
+d16 1
+a16 2
+int 
+pingloop( const char *IP_address )
+d18 17
+a34 9
+char command[256];
+int ping_result;
+int main_loop;
+int ping_loop;
+int done_been_beeped;
+
+sprintf( command, "ping -c 1 %s > /dev/null", IP_address );
+main_loop=1;
+ping_loop=1;
+d39 7
+a45 1
+      printf( "%i\n", ping_result );
+d78 1
+d82 1
+d84 1
+a84 1
+   if (argc != 2)
+d87 1
+a87 1
+      fprintf(stderr, "Usage: %s IP_address\n",
+d92 1
+a92 1
+test = pingloop( IP_address );
+@
+
+
+1.2
+log
+@Began modularization
+@
+text
+@d14 2
+a15 1
+int pingloop( const char *IP_address )
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d14 1
+a14 1
+int main ( int argc, char **argv )
+d16 5
+a20 21
+   char *IP_address;
+   char command[256];
+   int ping_result;
+   int main_loop;
+   int ping_loop;
+   int modem_open;
+   int done_been_beeped; 
+
+   IP_address = argv[1];
+   sprintf( command, "ping -c 1 %s > /dev/null", IP_address );
+   main_loop=1;
+   ping_loop=1;   
+  
+   if (argc != 2)
+   {
+      printf("beeperd 0.0.1\nCopyright 1999 Robert Helmer/Namodn Enterprises\nbeeperd is free software, covered by the GNU General Public License.\nYou may modify and/or redistribute this software!\nSee the file COPYING and http://robert.namodn.com for more.\n\n" );
+      fprintf(stderr, "Usage: %s IP_address\n",
+      argv[0]);
+ 
+      exit(0);
+   }
+d22 3
+a24 5
+   if (fork())
+   {
+      printf("Forked child OK Exit now ...\n");
+      exit(0);
+   }  
+d33 10
+a42 10
+	       {	
+	          if( ping_loop >= 10 )
+		  {
+		      printf( "Calling the beeper..\n" );
+		      ping_result = system( "dip ./beeperd.dip" );
+		      done_been_beeped=1;
+		      break;
+		   }
+		   else
+		      break;
+d44 3
+a46 3
+	       if( done_been_beeped == 1 )
+	          break;
+         } 
+d55 29
+d86 1
+@
