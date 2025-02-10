@@ -1,0 +1,5 @@
+port ttyS0
+send AT\r
+wait OK 2
+dial PHN-NMBR,,,,,0*0*0*0*0
+exit
